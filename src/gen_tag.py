@@ -64,8 +64,6 @@ def gen_field_struct(p):
     neg_mont_n1, _ = egcd(p, 1 << width_bits)
     mont_n1 = canonical_mod(-neg_mont_n1, 1 << width_bits)
 
-    print('//', mont_n1)
-
     print_clist(n_to_limbs(mont_n1))
 
     mont_rmodn = (1 << (width_bits)) % p
