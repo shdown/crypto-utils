@@ -1,142 +1,223 @@
 #!/usr/bin/env python3
 import sys
+from typing import List, Union, Optional
 
 
-SCRATCH_REG_NAMES = 'rax rdi rsi rdx rcx r8 r9 r10 r11'.split()
+class RegList:
+    def __init__(self, names: List[str]):
+        self._names = names
+
+    def name_by_index(self, index: int) -> str:
+        return self._names[index]
+
+    def index_by_name(self, name: str) -> int:
+        return self._names.index(name)
+
+    def names(self) -> List[str]:
+        return self._names
+
+    def __len__(self) -> int:
+        return len(self._names)
 
 
-PARAM_REG_NAMES = 'rdi rsi rdx rcx r8 r9'.split()
+SCRATCH_REGS = RegList('rax rdi rsi rdx rcx r8 r9 r10 r11'.split())
 
 
-ALL_REG_NAMES = SCRATCH_REG_NAMES
+CALLEE_SAVED_REGS = RegList('rbx r12 r13 r14 r15'.split())
 
 
-def resolve_reg_index(name):
-    return ALL_REG_NAMES.index(name)
+ALL_REGS = RegList(SCRATCH_REGS.names() + CALLEE_SAVED_REGS.names())
+
+
+# First 6 function args are passed in: rdi rsi rdx rcx r8 r9
 
 
 class Reg:
-    def __init__(self, index):
+    def __init__(self, index: int):
         self.index = index
 
     def __str__(self):
-        return f'%{ALL_REG_NAMES[self.index]}'
+        return f'%{ALL_REGS.name_by_index(self.index)}'
+
+
+class NoVacantReg(BaseException):
+    pass
 
 
 class RegStore:
-    def __init__(self):
-        self.free_indices = list(range(len(SCRATCH_REG_NAMES)))
+    def __init__(self, reg_list: RegList=SCRATCH_REGS):
+        self.free_indices = [ALL_REGS.index_by_name(name) for name in reg_list.names()]
 
-    def take(self):
+    def take(self) -> Reg:
         # TODO this heuristic works for now, but could be made configurable
         where = -1
-        return Reg(self.free_indices.pop(where))
+        try:
+            return Reg(self.free_indices.pop(where))
+        except IndexError:
+            raise NoVacantReg()
 
-    def untake(self, reg):
+    def untake(self, reg: Reg) -> None:
         # TODO this heuristic works for now, but could be made configurable
         where = 0
         self.free_indices.insert(where, reg.index)
 
-    def take_by_index(self, index):
+    def take_by_index(self, index: int) -> Reg:
         self.free_indices.remove(index)
         return Reg(index)
 
-    def take_by_name(self, name):
-        return self.take_by_index(resolve_reg_index(name))
+    def take_by_name(self, name: str) -> Reg:
+        return self.take_by_index(ALL_REGS.index_by_name(name))
 
 
 class PointerReg:
-    def __init__(self, reg, disp=0):
+    def __init__(self, reg: Reg, offset: int=0):
         self.reg = reg
-        self.disp = disp
+        self.offset = offset
 
     def __str__(self):
-        if self.disp:
-            return f'{self.disp * 8}({self.reg})'
+        if self.offset:
+            return f'{self.offset * 8}({self.reg})'
         else:
             return f'({self.reg})'
 
-    def displace(self, offset):
-        return PointerReg(reg=self.reg, disp=self.disp + offset)
+    def displace(self, offset: int):
+        return PointerReg(reg=self.reg, offset=self.offset + offset)
 
 
 #------------------------------------------------------------------------------
 
 
-# Returns register with last carry; you must "untake" it.
-def mul_aux(RS, n, undef_from, ptrreg_src, reg_mulby, ptrreg_dst, zero):
+# Multiply 'src[0]...src[n]' by 'mulby', writing/adding result to 'dst[0]...dst[n]'.
+#
+# If 'i >= undef_from', then the value of 'dst[i]' is assumed to be "undefined" (but implicitly
+# contain the value of zero), otherwise 'dst[i]' is added to.
+#
+# 'zero' must be either a register with value of zero, or constant "$0".
+#
+# If 'drop_last_carry' is False (default), returns register with last carry; you must "untake" it.
+# Otherwise, returns None.
+def mul_aux(
+        RS: RegStore,
+        n: int,
+        undef_from: int,
+        src: PointerReg,
+        mulby: Union[Reg, PointerReg],
+        dst: PointerReg,
+        zero: Union[Reg, str],
+        drop_last_carry: bool=False) -> Optional[Reg]:
+
     rax = RS.take_by_name('rax')
     rdx = RS.take_by_name('rdx')
 
     reg_carry = RS.take()
 
     for i in range(n):
+        drop_following_carry = drop_last_carry and (i + 1 == n)
 
         if i:
             print(f'movq {rdx}, {reg_carry}')
 
-        print(f'movq {reg_mulby}, {rax}')
-        print(f'mulq {ptrreg_src.displace(i)}')
+        print(f'movq {mulby}, {rax}')
+        print(f'mulq {src.displace(i)}')
 
         if i:
             print(f'addq {reg_carry}, {rax}')
-            print(f'adcq {zero}, {rdx}')
+            if not drop_following_carry:
+                print(f'adcq {zero}, {rdx}')
 
         if i >= undef_from:
-            print(f'movq {rax}, {ptrreg_dst.displace(i)}')
+            print(f'movq {rax}, {dst.displace(i)}')
         else:
-            print(f'addq {rax}, {ptrreg_dst.displace(i)}')
-            print(f'adcq {zero}, {rdx}')
+            print(f'addq {rax}, {dst.displace(i)}')
+            if not drop_following_carry:
+                print(f'adcq {zero}, {rdx}')
 
     RS.untake(reg_carry)
     RS.untake(rax)
-    return rdx
+    if drop_last_carry:
+        RS.untake(rdx)
+        return None
+    else:
+        return rdx
 
 
-def long_mul_step(RS, n, undef_from, ptrreg_src, reg_mulby, ptrreg_dst, zero):
-    reg_last_carry = mul_aux(
+def mul_aux_auto(
+        RS: RegStore,
+        n: int,
+        undef_from: int,
+        src: PointerReg,
+        b: PointerReg,
+        dst: PointerReg,
+        zero: Union[Reg, str],
+        drop_last_carry: bool=False) -> Optional[Reg]:
+
+    if n == 1:
+        return mul_aux(RS, n, undef_from, src, b, dst, zero, drop_last_carry)
+    else:
+        reg_mulby = RS.take()
+        print(f'movq {b}, {reg_mulby}')
+        result = mul_aux(RS, n, undef_from, src, reg_mulby, dst, zero, drop_last_carry)
+        RS.untake(reg_mulby)
+        return result
+
+
+# Multiply 'src[0]...src[n]' by 'b[0]', writing/adding result to 'dst[0]...dst[n+1]'.
+#
+# If 'i >= undef_from', then the value of 'dst[i]' is assumed to be "undefined" (but implicitly
+# contain the value of zero), otherwise 'dst[i]' is added to.
+def long_mul_step(
+        RS: RegStore,
+        n: int,
+        undef_from: int,
+        src: PointerReg,
+        b: PointerReg,
+        dst: PointerReg,
+        zero: Union[Reg, str]) -> None:
+
+    reg_last_carry = mul_aux_auto(
         RS,
         n, undef_from,
-        ptrreg_src, reg_mulby, ptrreg_dst,
+        src, b, dst,
         zero)
 
     if n >= undef_from:
-        print(f'movq {reg_last_carry}, {ptrreg_dst.displace(n)}')
+        print(f'movq {reg_last_carry}, {dst.displace(n)}')
     else:
-        print(f'addq {reg_last_carry}, {ptrreg_dst.displace(n)}')
+        print(f'addq {reg_last_carry}, {dst.displace(n)}')
 
     RS.untake(reg_last_carry)
+
+
+def move_around(RS: RegStore, x: Reg) -> Reg:
+    x_copy = RS.take()
+    print(f'movq {x}, {x_copy}')
+    RS.untake(x)
+    return x_copy
 
 
 #------------------------------------------------------------------------------
 
 
-def FUNC_mul(n, m):
+def FUNC_mul(n: int, m: int) -> None:
+    if n < m:
+        raise ValueError('expected n >= m')
+
     RS = RegStore()
-    reg_pa = RS.take_by_name('rdi') # param 1
-    reg_pb = RS.take_by_name('rsi') # param 2
+    reg_a = RS.take_by_name('rdi') # param 1
+    reg_b = RS.take_by_name('rsi') # param 2
     reg_dst = RS.take_by_name('rdx') # param 3
 
     # we need to move it around because 'mul_aux' gonna need rdx.
-    reg_dst_copy = RS.take()
-    print(f'movq {reg_dst}, {reg_dst_copy}')
-    RS.untake(reg_dst)
+    reg_dst = move_around(RS, reg_dst)
 
-    ptrreg_a = PointerReg(reg_pa)
-    ptrreg_b = PointerReg(reg_pb)
-    ptrreg_dst = PointerReg(reg_dst_copy)
+    a = PointerReg(reg_a)
+    b = PointerReg(reg_b)
+    dst = PointerReg(reg_dst)
 
     reg_zero = RS.take()
     print(f'xorq {reg_zero}, {reg_zero}')
 
-    reg_tmp = RS.take()
-
-    if n < m:
-        raise ValueError('expected n >= m')
-
     for i in range(m):
-        print(f'movq {ptrreg_b.displace(i)}, {reg_tmp}')
-
         if i:
             undef_from = n
         else:
@@ -145,89 +226,107 @@ def FUNC_mul(n, m):
         long_mul_step(
             RS,
             n, undef_from,
-            ptrreg_a, reg_tmp, ptrreg_dst.displace(i),
+            a, b.displace(i), dst.displace(i),
             zero=reg_zero)
 
-    RS.untake(reg_tmp)
     RS.untake(reg_zero)
 
 
-def FUNC_mul_lo(n):
+def FUNC_mul_lo(n: int) -> None:
     RS = RegStore()
-    reg_pa = RS.take_by_name('rdi') # param 1
-    reg_pb = RS.take_by_name('rsi') # param 2
+    reg_a = RS.take_by_name('rdi') # param 1
+    reg_b = RS.take_by_name('rsi') # param 2
     reg_dst = RS.take_by_name('rdx') # param 3
 
     # we need to move it around because 'mul_aux' gonna need rdx.
-    reg_dst_copy = RS.take()
-    print(f'movq {reg_dst}, {reg_dst_copy}')
-    RS.untake(reg_dst)
+    reg_dst = move_around(RS, reg_dst)
 
-    ptrreg_a = PointerReg(reg_pa)
-    ptrreg_b = PointerReg(reg_pb)
-    ptrreg_dst = PointerReg(reg_dst_copy)
+    a = PointerReg(reg_a)
+    b = PointerReg(reg_b)
+    dst = PointerReg(reg_dst)
 
     reg_zero = RS.take()
     print(f'xorq {reg_zero}, {reg_zero}')
 
-    reg_tmp = RS.take()
-
     for i in range(n):
-        print(f'movq {ptrreg_b.displace(i)}, {reg_tmp}')
-
         if i:
             undef_from = n
         else:
             undef_from = 0
 
-        taken_reg = mul_aux(
+        mul_aux_auto(
             RS,
             n - i, undef_from,
-            ptrreg_a, reg_tmp, ptrreg_dst,
-            zero=reg_zero)
+            a, b.displace(i), dst.displace(i),
+            zero=reg_zero,
+            drop_last_carry=True)
 
-        RS.untake(taken_reg)
-
-    RS.untake(reg_tmp)
     RS.untake(reg_zero)
 
 
-def FUNC_mul_q(n):
+def FUNC_mul_q(n: int) -> None:
     RS = RegStore()
-    reg_pa = RS.take_by_name('rdi') # param 1
-    reg_b = RS.take_by_name('rsi') # param 2
-    reg_dst = RS.take_by_name('rdx') # param 3
+    reg_a = RS.take_by_name('rdi') # param 1
+    reg_x = RS.take_by_name('rsi') # param 2
 
-    # we need to move it around because 'mul_aux' gonna need rdx.
-    reg_dst_copy = RS.take()
-    print(f'movq {reg_dst}, {reg_dst_copy}')
-    RS.untake(reg_dst)
+    a = PointerReg(reg_a)
 
-    ptrreg_a = PointerReg(reg_pa)
-    ptrreg_dst = PointerReg(reg_dst_copy)
-
-    reg_last_carry = mul_aux(RS, n, 0, ptrreg_a, reg_b, ptrreg_dst, zero='$0')
+    reg_last_carry = mul_aux(
+        RS,
+        n, 0,
+        a, reg_x, a,
+        zero='$0')
 
     rax = RS.take_by_name('rax') # return value
     print(f'movq {reg_last_carry}, {rax}')
 
 
-def FUNC_add(n):
+def FUNC_div_leaky_q(n: int) -> None:
     RS = RegStore()
-    reg_pa = RS.take_by_name('rdi') # param 1
-    reg_pb = RS.take_by_name('rsi') # param 2
+    reg_a = RS.take_by_name('rdi') # param 1
+    reg_x = RS.take_by_name('rsi') # param 2
+
+    a = PointerReg(reg_a)
+
+    rax = RS.take_by_name('rax')
+    rdx = RS.take_by_name('rdx')
+
+    print(f'xorq {rdx}, {rdx}')
+
+    for i in reversed(range(n)):
+        print(f'movq {a.displace(i)}, {rax}')
+        print(f'divq {reg_x}')
+        print(f'movq {rax}, {a.displace(i)}')
+
+    print(f'movq {rdx}, {rax}')
+
+
+class AORS_ADD:
+    ADDSUB = 'add'
+    ADCSBB = 'adc'
+
+
+class AORS_SUB:
+    ADDSUB = 'sub'
+    ADCSBB = 'sbb'
+
+
+def FUNC_aors(n, aors):
+    RS = RegStore()
+    reg_a = RS.take_by_name('rdi') # param 1
+    reg_b = RS.take_by_name('rsi') # param 2
 
     reg_tmp = RS.take()
 
-    ptrreg_a = PointerReg(reg_pa)
-    ptrreg_b = PointerReg(reg_pb)
+    a = PointerReg(reg_a)
+    b = PointerReg(reg_b)
 
     for i in range(n):
-        print(f'movq {ptrreg_b.displace(i)}, {reg_tmp}')
+        print(f'movq {b.displace(i)}, {reg_tmp}')
         if i:
-            print(f'adcq {reg_tmp}, {ptrreg_a.displace(i)}')
+            print(f'{aors.ADCSBB}q {reg_tmp}, {a.displace(i)}')
         else:
-            print(f'addq {reg_tmp}, {ptrreg_a.displace(i)}')
+            print(f'{aors.ADDSUB}q {reg_tmp}, {a.displace(i)}')
 
     RS.untake(reg_tmp)
 
@@ -235,22 +334,29 @@ def FUNC_add(n):
     print(f'sbbq {rax}, {rax}')
 
 
-def FUNC_sub(n):
+def FUNC_aors_montgomery(n, aors):
     RS = RegStore()
-    reg_pa = RS.take_by_name('rdi') # param 1
-    reg_pb = RS.take_by_name('rsi') # param 2
+    reg_a = RS.take_by_name('rdi') # param 1
+    reg_b = RS.take_by_name('rsi') # param 2
+    reg_dst = RS.take_by_name('rdx') # param 3
 
     reg_tmp = RS.take()
 
-    ptrreg_a = PointerReg(reg_pa)
-    ptrreg_b = PointerReg(reg_pb)
+    a = PointerReg(reg_a)
+    b = PointerReg(reg_b)
+    dst = PointerReg(reg_dst)
 
     for i in range(n):
-        print(f'movq {ptrreg_b.displace(i)}, {reg_tmp}')
+        print(f'movq {a.displace(i)}, {reg_tmp}')
         if i:
-            print(f'sbbq {reg_tmp}, {ptrreg_a.displace(i)}')
+            print(f'{aors.ADCSBB}q {b.displace(i)}, {reg_tmp}')
         else:
-            print(f'subq {reg_tmp}, {ptrreg_a.displace(i)}')
+            print(f'{aors.ADDSUB}q {b.displace(i)}, {reg_tmp}')
+
+    for i in range(n, 2*n):
+        print(f'movq {a.displace(i)}, {reg_tmp}')
+        print(f'{aors.ADCSBB}q {b.displace(i)}, {reg_tmp}')
+        print(f'movq {reg_tmp}, {dst.displace(i - n)}')
 
     RS.untake(reg_tmp)
 
@@ -258,58 +364,28 @@ def FUNC_sub(n):
     print(f'sbbq {rax}, {rax}')
 
 
-def FUNC_sub_masked(n):
+def FUNC_aors_masked(n, aors):
     RS = RegStore()
-    reg_pa = RS.take_by_name('rdi') # param 1
-    reg_pb = RS.take_by_name('rsi') # param 2
+    reg_a = RS.take_by_name('rdi') # param 1
+    reg_b = RS.take_by_name('rsi') # param 2
     reg_m = RS.take_by_name('rdx') # param 3
 
-    ptrreg_a = PointerReg(reg_pa)
-    ptrreg_b = PointerReg(reg_pb)
+    a = PointerReg(reg_a)
+    b = PointerReg(reg_b)
 
     tmp_regs = []
 
     for i in range(n):
         cur_reg = RS.take()
-        print(f'movq {ptrreg_b.displace(i)}, {cur_reg}')
+        print(f'movq {b.displace(i)}, {cur_reg}')
         print(f'andq {reg_m}, {cur_reg}')
         tmp_regs.append(cur_reg)
 
     for i in range(n):
         if i:
-            print(f'sbbq {tmp_regs[i]}, {ptrreg_a.displace(i)}')
+            print(f'{aors.ADCSBB}q {tmp_regs[i]}, {a.displace(i)}')
         else:
-            print(f'subq {tmp_regs[i]}, {ptrreg_a.displace(i)}')
-
-    for reg in tmp_regs:
-        RS.untake(reg)
-
-    rax = RS.take_by_name('rax') # return value
-    print(f'sbbq {rax}, {rax}')
-
-
-def FUNC_add_masked(n):
-    RS = RegStore()
-    reg_pa = RS.take_by_name('rdi') # param 1
-    reg_pb = RS.take_by_name('rsi') # param 2
-    reg_m = RS.take_by_name('rdx') # param 3
-
-    ptrreg_a = PointerReg(reg_pa)
-    ptrreg_b = PointerReg(reg_pb)
-
-    tmp_regs = []
-
-    for i in range(n):
-        cur_reg = RS.take()
-        print(f'movq {ptrreg_b.displace(i)}, {cur_reg}')
-        print(f'andq {reg_m}, {cur_reg}')
-        tmp_regs.append(cur_reg)
-
-    for i in range(n):
-        if i:
-            print(f'adcq {tmp_regs[i]}, {ptrreg_a.displace(i)}')
-        else:
-            print(f'addq {tmp_regs[i]}, {ptrreg_a.displace(i)}')
+            print(f'{aors.ADDSUB}q {tmp_regs[i]}, {a.displace(i)}')
 
     for reg in tmp_regs:
         RS.untake(reg)
@@ -320,20 +396,20 @@ def FUNC_add_masked(n):
 
 def FUNC_cmplt(n):
     RS = RegStore()
-    reg_pa = RS.take_by_name('rdi') # param 1
-    reg_pb = RS.take_by_name('rsi') # param 2
+    reg_a = RS.take_by_name('rdi') # param 1
+    reg_b = RS.take_by_name('rsi') # param 2
 
     reg_tmp = RS.take()
 
-    ptrreg_a = PointerReg(reg_pa)
-    ptrreg_b = PointerReg(reg_pb)
+    a = PointerReg(reg_a)
+    b = PointerReg(reg_b)
 
     for i in range(n):
-        print(f'movq {ptrreg_a.displace(i)}, {reg_tmp}')
+        print(f'movq {a.displace(i)}, {reg_tmp}')
         if i:
-            print(f'sbbq {ptrreg_b.displace(i)}, {reg_tmp}')
+            print(f'sbbq {b.displace(i)}, {reg_tmp}')
         else:
-            print(f'subq {ptrreg_b.displace(i)}, {reg_tmp}')
+            print(f'subq {b.displace(i)}, {reg_tmp}')
 
     RS.untake(reg_tmp)
 
@@ -343,20 +419,20 @@ def FUNC_cmplt(n):
 
 def FUNC_cmple(n):
     RS = RegStore()
-    reg_pa = RS.take_by_name('rdi') # param 1
-    reg_pb = RS.take_by_name('rsi') # param 2
+    reg_a = RS.take_by_name('rdi') # param 1
+    reg_b = RS.take_by_name('rsi') # param 2
 
     reg_tmp = RS.take()
 
-    ptrreg_a = PointerReg(reg_pa)
-    ptrreg_b = PointerReg(reg_pb)
+    a = PointerReg(reg_a)
+    b = PointerReg(reg_b)
 
     for i in range(n):
-        print(f'movq {ptrreg_b.displace(i)}, {reg_tmp}')
+        print(f'movq {b.displace(i)}, {reg_tmp}')
         if i:
-            print(f'sbbq {ptrreg_a.displace(i)}, {reg_tmp}')
+            print(f'sbbq {a.displace(i)}, {reg_tmp}')
         else:
-            print(f'subq {ptrreg_a.displace(i)}, {reg_tmp}')
+            print(f'subq {a.displace(i)}, {reg_tmp}')
 
     RS.untake(reg_tmp)
 
@@ -367,41 +443,41 @@ def FUNC_cmple(n):
 
 def FUNC_copy_generic(index_range):
     RS = RegStore()
-    reg_pa = RS.take_by_name('rdi') # param 1
-    reg_pb = RS.take_by_name('rsi') # param 2
+    reg_a = RS.take_by_name('rdi') # param 1
+    reg_b = RS.take_by_name('rsi') # param 2
 
     reg_tmp = RS.take()
 
-    ptrreg_a = PointerReg(reg_pa)
-    ptrreg_b = PointerReg(reg_pb)
+    a = PointerReg(reg_a)
+    b = PointerReg(reg_b)
 
     for i in index_range:
-        print(f'movq {ptrreg_b.displace(i)}, {reg_tmp}')
-        print(f'movq {reg_tmp}, {ptrreg_a.displace(i)}')
+        print(f'movq {b.displace(i)}, {reg_tmp}')
+        print(f'movq {reg_tmp}, {a.displace(i)}')
 
     RS.untake(reg_tmp)
 
 
 def FUNC_cmpeq(n):
     RS = RegStore()
-    reg_pa = RS.take_by_name('rdi') # param 1
-    reg_pb = RS.take_by_name('rsi') # param 2
+    reg_a = RS.take_by_name('rdi') # param 1
+    reg_b = RS.take_by_name('rsi') # param 2
 
     rax = RS.take_by_name('rax') # return value
 
     reg_tmp = RS.take()
 
-    ptrreg_a = PointerReg(reg_pa)
-    ptrreg_b = PointerReg(reg_pb)
+    a = PointerReg(reg_a)
+    b = PointerReg(reg_b)
 
     for i in range(n):
         if i:
-            print(f'movq {ptrreg_a.displace(i)}, {reg_tmp}')
-            print(f'xorq {ptrreg_b.displace(i)}, {reg_tmp}')
+            print(f'movq {a.displace(i)}, {reg_tmp}')
+            print(f'xorq {b.displace(i)}, {reg_tmp}')
             print(f'orq {reg_tmp}, {rax}')
         else:
-            print(f'movq {ptrreg_a.displace(i)}, {rax}')
-            print(f'xorq {ptrreg_b.displace(i)}, {rax}')
+            print(f'movq {a.displace(i)}, {rax}')
+            print(f'xorq {b.displace(i)}, {rax}')
 
     RS.untake(reg_tmp)
 
@@ -411,14 +487,62 @@ def FUNC_cmpeq(n):
 
 def FUNC_setzlow(n):
     RS = RegStore()
-    reg_pa = RS.take_by_name('rdi') # param 1
+    reg_a = RS.take_by_name('rdi') # param 1
     reg_low = RS.take_by_name('rsi') # param 2
 
-    ptrreg_a = PointerReg(reg_pa)
+    a = PointerReg(reg_a)
 
-    print(f'movq {reg_low}, {ptrreg_a}')
+    print(f'movq {reg_low}, {a}')
     for i in range(1, n):
-        print(f'movq $0, {ptrreg_a.displace(i)}')
+        print(f'movq $0, {a.displace(i)}')
+
+
+def FUNC_tabsel(n, k):
+    RS = RegStore()
+    RS_2 = RegStore(reg_list=CALLEE_SAVED_REGS)
+
+    reg_dst = RS.take_by_name('rdi') # param 1
+    reg_tab = RS.take_by_name('rsi') # param 2
+    reg_idx = RS.take_by_name('rdx') # param 3
+
+    dst = PointerReg(reg_dst)
+    tab = PointerReg(reg_tab)
+
+    reg_mask = RS.take()
+    reg_tmp = RS.take()
+
+    regs_result = []
+    pushed_regs = []
+
+    for j in range(n):
+        try:
+            reg = RS.take()
+        except NoVacantReg:
+            reg = RS_2.take()
+            print(f'pushq {reg}')
+            pushed_regs.append(reg)
+
+        regs_result.append(reg)
+
+    ntab = 1 << k
+    for i in range(ntab):
+        print(f'subq $1, {reg_idx}')
+        print(f'sbbq {reg_mask}, {reg_mask}')
+
+        for j in range(n):
+            if i:
+                print(f'movq {tab.displace(i*n+j)}, {reg_tmp}')
+                print(f'andq {reg_mask}, {reg_tmp}')
+                print(f'orq {reg_tmp}, {regs_result[j]}')
+            else:
+                print(f'movq {tab.displace(i*n+j)}, {regs_result[j]}')
+                print(f'andq {reg_mask}, {regs_result[j]}')
+
+    for j in range(n):
+        print(f'movq {regs_result[j]}, {dst.displace(j)}')
+
+    for reg in reversed(pushed_regs):
+        print(f'popq {reg}')
 
 
 #------------------------------------------------------------------------------
@@ -449,22 +573,27 @@ def get_generated_funcs(n):
             name=f'teki_add_{n}',
             proto='L*, @L* -> L',
             short_name='add',
-            callback=lambda: FUNC_add(n)),
+            callback=lambda: FUNC_aors(n, AORS_ADD)),
         GeneratedFunc(
             name=f'teki_sub_{n}',
             proto='L*, @L* -> L',
             short_name='sub',
-            callback=lambda: FUNC_sub(n)),
+            callback=lambda: FUNC_aors(n, AORS_SUB)),
+        GeneratedFunc(
+            name=f'teki_add_montgomery_{n}',
+            proto='@L*, @L*, L* -> L',
+            short_name='add_montgomery',
+            callback=lambda: FUNC_aors_montgomery(n, AORS_ADD)),
         GeneratedFunc(
             name=f'teki_add_masked_{n}',
             proto='L*, @L*, L -> L',
             short_name='add_masked',
-            callback=lambda: FUNC_add_masked(n)),
+            callback=lambda: FUNC_aors_masked(n, AORS_ADD)),
         GeneratedFunc(
             name=f'teki_sub_masked_{n}',
             proto='L*, @L*, L -> L',
             short_name='sub_masked',
-            callback=lambda: FUNC_sub_masked(n)),
+            callback=lambda: FUNC_aors_masked(n, AORS_SUB)),
         GeneratedFunc(
             name=f'teki_cmplt_{n}',
             proto='@L*, @L* -> L',
@@ -483,15 +612,25 @@ def get_generated_funcs(n):
         GeneratedFunc(
             name=f'teki_mul_{n}',
             proto='@L*, @L*, L* -> void',
-            short_name='mul_normal',
+            short_name='mul',
             callback=lambda: FUNC_mul(n, n)),
+        GeneratedFunc(
+            name=f'teki_mul_q_{n}',
+            proto='L*, L -> L',
+            short_name='mul_q',
+            callback=lambda: FUNC_mul_q(n)),
+        GeneratedFunc(
+            name=f'teki_div_leaky_q_{n}',
+            proto='L*, L -> L',
+            short_name='div_leaky_q',
+            callback=lambda: FUNC_div_leaky_q(n)),
         GeneratedFunc(
             name=f'teki_mul_lo_{n}',
             proto='@L*, @L*, L* -> void',
             short_name='mul_lo',
             callback=lambda: FUNC_mul_lo(n)),
         GeneratedFunc(
-            name=f'teki_mul_{n*2}_{n+1}',
+            name=f'teki_mul_barret_{n}',
             proto='@L*, @L*, L* -> void',
             short_name='mul_barrett',
             callback=lambda: FUNC_mul(n * 2, n + 1)),
@@ -510,6 +649,11 @@ def get_generated_funcs(n):
             proto='L*, L -> void',
             short_name='setzlow',
             callback=lambda: FUNC_setzlow(n)),
+        GeneratedFunc(
+            name=f'teki_tabsel_{n}',
+            proto='L*, @L*, L -> void',
+            short_name='tabsel',
+            callback=lambda: FUNC_tabsel(n, k=4)),
     ]
 
 
@@ -522,7 +666,7 @@ def gen_asm(n):
         print(f'.align 16')
         print(f'{func.name}:')
         func.callback()
-        print('ret')
+        print('retq')
 
 
 def parse_proto(proto_str):
@@ -565,6 +709,8 @@ def gen_cxx_header(n):
     print(f'#include "teki_{n}.h"')
     print('}')
 
+    print('namespace fi')
+    print('{')
     print(f'template<> struct Field_traits<{n}>')
     print('{')
 
@@ -587,7 +733,10 @@ def gen_cxx_header(n):
         print(f'  return {func.name}({", ".join(cxx_callarg_list)});')
         print(' }')
 
-    print('}')
+    print(' static inline void sqr(const uint64_t *a, uint64_t *b) { return mul(a, a, b); }')
+
+    print('};')
+    print('} // namespace fi')
 
 
 def print_usage_and_exit(msg=None):

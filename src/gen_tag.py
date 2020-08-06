@@ -23,14 +23,57 @@ def print_clist(limbs):
     print(' },')
 
 
+def egcd(a, b):
+    s = 0
+    old_s = 1
+    r = b
+    old_r = a
+
+    while r:
+        q = old_r // r
+        old_r, r = r, old_r - q * r
+        old_s, s = s, old_s - q * s
+
+    if b:
+        bz_t = (old_r - old_s * a) // b
+    else:
+        bz_t = 0
+
+    return old_s, bz_t
+
+
+def canonical_mod(a, b):
+    a %= b
+    if a < 0:
+        a += b
+    return a
+
+
 def gen_field_struct(p):
     p_limbs = n_to_limbs(p)
     width_bits = 64 * len(p_limbs)
+
     print(f'// width: {len(p_limbs)} limbs')
     print('{')
+
     print_clist(p_limbs)
-    r = (1 << (width_bits * 2)) // p
-    print_clist(n_to_limbs(r))
+
+    barrett_r = (1 << (width_bits * 2)) // p
+    print_clist(n_to_limbs(barrett_r))
+
+    neg_mont_n1, _ = egcd(p, 1 << width_bits)
+    mont_n1 = canonical_mod(-neg_mont_n1, 1 << width_bits)
+
+    print('//', mont_n1)
+
+    print_clist(n_to_limbs(mont_n1))
+
+    mont_rmodn = (1 << (width_bits)) % p
+    print_clist(n_to_limbs(mont_rmodn))
+
+    mont_r2modn = (1 << (width_bits * 2)) % p
+    print_clist(n_to_limbs(mont_r2modn))
+
     print('}')
 
 

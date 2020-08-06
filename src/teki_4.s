@@ -13,7 +13,7 @@ adcq %r11, 16(%rdi)
 movq 24(%rsi), %r11
 adcq %r11, 24(%rdi)
 sbbq %rax, %rax
-ret
+retq
 
 .global teki_sub_4
 .type teki_sub_4, @function
@@ -28,7 +28,34 @@ sbbq %r11, 16(%rdi)
 movq 24(%rsi), %r11
 sbbq %r11, 24(%rdi)
 sbbq %rax, %rax
-ret
+retq
+
+.global teki_add_montgomery_4
+.type teki_add_montgomery_4, @function
+.align 16
+teki_add_montgomery_4:
+movq (%rdi), %r11
+addq (%rsi), %r11
+movq 8(%rdi), %r11
+adcq 8(%rsi), %r11
+movq 16(%rdi), %r11
+adcq 16(%rsi), %r11
+movq 24(%rdi), %r11
+adcq 24(%rsi), %r11
+movq 32(%rdi), %r11
+adcq 32(%rsi), %r11
+movq %r11, (%rdx)
+movq 40(%rdi), %r11
+adcq 40(%rsi), %r11
+movq %r11, 8(%rdx)
+movq 48(%rdi), %r11
+adcq 48(%rsi), %r11
+movq %r11, 16(%rdx)
+movq 56(%rdi), %r11
+adcq 56(%rsi), %r11
+movq %r11, 24(%rdx)
+sbbq %rax, %rax
+retq
 
 .global teki_add_masked_4
 .type teki_add_masked_4, @function
@@ -47,7 +74,7 @@ adcq %r10, 8(%rdi)
 adcq %r9, 16(%rdi)
 adcq %r8, 24(%rdi)
 sbbq %rax, %rax
-ret
+retq
 
 .global teki_sub_masked_4
 .type teki_sub_masked_4, @function
@@ -66,7 +93,7 @@ sbbq %r10, 8(%rdi)
 sbbq %r9, 16(%rdi)
 sbbq %r8, 24(%rdi)
 sbbq %rax, %rax
-ret
+retq
 
 .global teki_cmplt_4
 .type teki_cmplt_4, @function
@@ -81,7 +108,7 @@ sbbq 16(%rsi), %r11
 movq 24(%rdi), %r11
 sbbq 24(%rsi), %r11
 sbbq %rax, %rax
-ret
+retq
 
 .global teki_cmple_4
 .type teki_cmple_4, @function
@@ -97,7 +124,7 @@ movq 24(%rsi), %r11
 sbbq 24(%rdi), %r11
 sbbq %rax, %rax
 notq %rax
-ret
+retq
 
 .global teki_cmpeq_4
 .type teki_cmpeq_4, @function
@@ -116,7 +143,7 @@ xorq 24(%rsi), %r11
 orq %r11, %rax
 subq $1, %rax
 sbbq %rax, %rax
-ret
+retq
 
 .global teki_mul_4
 .type teki_mul_4, @function
@@ -147,29 +174,29 @@ addq %r8, %rax
 adcq %r10, %rdx
 movq %rax, 24(%r11)
 movq %rdx, 32(%r11)
-movq 8(%rsi), %r9
-movq %r9, %rax
+movq 8(%rsi), %rcx
+movq %rcx, %rax
 mulq (%rdi)
 addq %rax, 8(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 8(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 16(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 16(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 24(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 24(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 32(%r11)
 adcq %r10, %rdx
@@ -201,34 +228,82 @@ adcq %r10, %rdx
 addq %rax, 40(%r11)
 adcq %r10, %rdx
 movq %rdx, 48(%r11)
-movq 24(%rsi), %r9
-movq %r9, %rax
+movq 24(%rsi), %rcx
+movq %rcx, %rax
 mulq (%rdi)
 addq %rax, 24(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 8(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 32(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 16(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 40(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 24(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 48(%r11)
 adcq %r10, %rdx
 movq %rdx, 56(%r11)
-ret
+retq
+
+.global teki_mul_q_4
+.type teki_mul_q_4, @function
+.align 16
+teki_mul_q_4:
+movq %rsi, %rax
+mulq (%rdi)
+movq %rax, (%rdi)
+movq %rdx, %r11
+movq %rsi, %rax
+mulq 8(%rdi)
+addq %r11, %rax
+adcq $0, %rdx
+movq %rax, 8(%rdi)
+movq %rdx, %r11
+movq %rsi, %rax
+mulq 16(%rdi)
+addq %r11, %rax
+adcq $0, %rdx
+movq %rax, 16(%rdi)
+movq %rdx, %r11
+movq %rsi, %rax
+mulq 24(%rdi)
+addq %r11, %rax
+adcq $0, %rdx
+movq %rax, 24(%rdi)
+movq %rdx, %rax
+retq
+
+.global teki_div_leaky_q_4
+.type teki_div_leaky_q_4, @function
+.align 16
+teki_div_leaky_q_4:
+xorq %rdx, %rdx
+movq 24(%rdi), %rax
+divq %rsi
+movq %rax, 24(%rdi)
+movq 16(%rdi), %rax
+divq %rsi
+movq %rax, 16(%rdi)
+movq 8(%rdi), %rax
+divq %rsi
+movq %rax, 8(%rdi)
+movq (%rdi), %rax
+divq %rsi
+movq %rax, (%rdi)
+movq %rdx, %rax
+retq
 
 .global teki_mul_lo_4
 .type teki_mul_lo_4, @function
@@ -256,50 +331,43 @@ movq %rdx, %r8
 movq %r9, %rax
 mulq 24(%rdi)
 addq %r8, %rax
-adcq %r10, %rdx
 movq %rax, 24(%r11)
-movq 8(%rsi), %r9
-movq %r9, %rax
+movq 8(%rsi), %rcx
+movq %rcx, %rax
 mulq (%rdi)
-addq %rax, (%r11)
-adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
-mulq 8(%rdi)
-addq %rcx, %rax
-adcq %r10, %rdx
 addq %rax, 8(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
-mulq 16(%rdi)
-addq %rcx, %rax
+movq %rdx, %r8
+movq %rcx, %rax
+mulq 8(%rdi)
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 16(%r11)
 adcq %r10, %rdx
+movq %rdx, %r8
+movq %rcx, %rax
+mulq 16(%rdi)
+addq %r8, %rax
+addq %rax, 24(%r11)
 movq 16(%rsi), %r9
 movq %r9, %rax
 mulq (%rdi)
-addq %rax, (%r11)
+addq %rax, 16(%r11)
 adcq %r10, %rdx
 movq %rdx, %r8
 movq %r9, %rax
 mulq 8(%rdi)
 addq %r8, %rax
-adcq %r10, %rdx
-addq %rax, 8(%r11)
-adcq %r10, %rdx
-movq 24(%rsi), %r9
-movq %r9, %rax
+addq %rax, 24(%r11)
+movq 24(%rsi), %rax
 mulq (%rdi)
-addq %rax, (%r11)
-adcq %r10, %rdx
-ret
+addq %rax, 24(%r11)
+retq
 
-.global teki_mul_8_5
-.type teki_mul_8_5, @function
+.global teki_mul_barret_4
+.type teki_mul_barret_4, @function
 .align 16
-teki_mul_8_5:
+teki_mul_barret_4:
 movq %rdx, %r11
 xorq %r10, %r10
 movq (%rsi), %r9
@@ -349,57 +417,57 @@ addq %r8, %rax
 adcq %r10, %rdx
 movq %rax, 56(%r11)
 movq %rdx, 64(%r11)
-movq 8(%rsi), %r9
-movq %r9, %rax
+movq 8(%rsi), %rcx
+movq %rcx, %rax
 mulq (%rdi)
 addq %rax, 8(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 8(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 16(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 16(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 24(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 24(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 32(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 32(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 40(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 40(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 48(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 48(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 56(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 56(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 64(%r11)
 adcq %r10, %rdx
@@ -459,57 +527,57 @@ adcq %r10, %rdx
 addq %rax, 72(%r11)
 adcq %r10, %rdx
 movq %rdx, 80(%r11)
-movq 24(%rsi), %r9
-movq %r9, %rax
+movq 24(%rsi), %rcx
+movq %rcx, %rax
 mulq (%rdi)
 addq %rax, 24(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 8(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 32(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 16(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 40(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 24(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 48(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 32(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 56(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 40(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 64(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 48(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 72(%r11)
 adcq %r10, %rdx
-movq %rdx, %rcx
-movq %r9, %rax
+movq %rdx, %r8
+movq %rcx, %rax
 mulq 56(%rdi)
-addq %rcx, %rax
+addq %r8, %rax
 adcq %r10, %rdx
 addq %rax, 80(%r11)
 adcq %r10, %rdx
@@ -569,7 +637,7 @@ adcq %r10, %rdx
 addq %rax, 88(%r11)
 adcq %r10, %rdx
 movq %rdx, 96(%r11)
-ret
+retq
 
 .global teki_copyfw_4
 .type teki_copyfw_4, @function
@@ -583,7 +651,7 @@ movq 16(%rsi), %r11
 movq %r11, 16(%rdi)
 movq 24(%rsi), %r11
 movq %r11, 24(%rdi)
-ret
+retq
 
 .global teki_copybw_4
 .type teki_copybw_4, @function
@@ -597,7 +665,7 @@ movq 8(%rsi), %r11
 movq %r11, 8(%rdi)
 movq (%rsi), %r11
 movq %r11, (%rdi)
-ret
+retq
 
 .global teki_setzlow_4
 .type teki_setzlow_4, @function
@@ -607,4 +675,234 @@ movq %rsi, (%rdi)
 movq $0, 8(%rdi)
 movq $0, 16(%rdi)
 movq $0, 24(%rdi)
-ret
+retq
+
+.global teki_tabsel_4
+.type teki_tabsel_4, @function
+.align 16
+teki_tabsel_4:
+subq $1, %rdx
+sbbq %r11, %r11
+movq (%rsi), %r9
+andq %r11, %r9
+movq 8(%rsi), %r8
+andq %r11, %r8
+movq 16(%rsi), %rcx
+andq %r11, %rcx
+movq 24(%rsi), %rax
+andq %r11, %rax
+subq $1, %rdx
+sbbq %r11, %r11
+movq 32(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r9
+movq 40(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r8
+movq 48(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rcx
+movq 56(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rax
+subq $1, %rdx
+sbbq %r11, %r11
+movq 64(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r9
+movq 72(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r8
+movq 80(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rcx
+movq 88(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rax
+subq $1, %rdx
+sbbq %r11, %r11
+movq 96(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r9
+movq 104(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r8
+movq 112(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rcx
+movq 120(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rax
+subq $1, %rdx
+sbbq %r11, %r11
+movq 128(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r9
+movq 136(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r8
+movq 144(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rcx
+movq 152(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rax
+subq $1, %rdx
+sbbq %r11, %r11
+movq 160(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r9
+movq 168(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r8
+movq 176(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rcx
+movq 184(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rax
+subq $1, %rdx
+sbbq %r11, %r11
+movq 192(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r9
+movq 200(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r8
+movq 208(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rcx
+movq 216(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rax
+subq $1, %rdx
+sbbq %r11, %r11
+movq 224(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r9
+movq 232(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r8
+movq 240(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rcx
+movq 248(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rax
+subq $1, %rdx
+sbbq %r11, %r11
+movq 256(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r9
+movq 264(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r8
+movq 272(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rcx
+movq 280(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rax
+subq $1, %rdx
+sbbq %r11, %r11
+movq 288(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r9
+movq 296(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r8
+movq 304(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rcx
+movq 312(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rax
+subq $1, %rdx
+sbbq %r11, %r11
+movq 320(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r9
+movq 328(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r8
+movq 336(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rcx
+movq 344(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rax
+subq $1, %rdx
+sbbq %r11, %r11
+movq 352(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r9
+movq 360(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r8
+movq 368(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rcx
+movq 376(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rax
+subq $1, %rdx
+sbbq %r11, %r11
+movq 384(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r9
+movq 392(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r8
+movq 400(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rcx
+movq 408(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rax
+subq $1, %rdx
+sbbq %r11, %r11
+movq 416(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r9
+movq 424(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r8
+movq 432(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rcx
+movq 440(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rax
+subq $1, %rdx
+sbbq %r11, %r11
+movq 448(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r9
+movq 456(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r8
+movq 464(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rcx
+movq 472(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rax
+subq $1, %rdx
+sbbq %r11, %r11
+movq 480(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r9
+movq 488(%rsi), %r10
+andq %r11, %r10
+orq %r10, %r8
+movq 496(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rcx
+movq 504(%rsi), %r10
+andq %r11, %r10
+orq %r10, %rax
+movq %r9, (%rdi)
+movq %r8, 8(%rdi)
+movq %rcx, 16(%rdi)
+movq %rax, 24(%rdi)
+retq

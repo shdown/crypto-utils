@@ -3,6 +3,9 @@
 #include <stdint.h>
 #include "field.hpp"
 
+namespace fi
+{
+
 template<class Tag>
 struct Elem
 {
@@ -21,24 +24,24 @@ struct Elem
 
     Elem& operator +=(const Elem &that)
     {
-        field_add(limbs, that.limbs, Tag::field);
+        fi::add(limbs, that.limbs, Tag::field);
         return *this;
     }
 
     Elem& operator -=(const Elem &that)
     {
-        field_sub(limbs, that.limbs, Tag::field);
+        fi::sub(limbs, that.limbs, Tag::field);
         return *this;
     }
 
     Elem operator -() const
     {
-        return Elem() - *this;
+        return Elem{} - *this;
     }
 
     void invert()
     {
-        field_inv(limbs, Tag::field);
+        fi::invert(limbs, Tag::field);
     }
 
     Elem inverse() const
@@ -50,7 +53,7 @@ struct Elem
 
     Elem& operator *=(const Elem &that)
     {
-        field_mul(limbs, that.limbs, limbs, Tag::field);
+        fi::mul(limbs, that.limbs, limbs, Tag::field);
         return *this;
     }
 
@@ -89,7 +92,7 @@ struct Elem
 
     bool operator ==(const Elem &that) const
     {
-        return static_cast<bool>(Field_traits<Tag::W>::cmpeq(limbs, that.limbs));
+        return static_cast<bool>(fi::Field_traits<Tag::W>::cmpeq(limbs, that.limbs));
     }
 
     bool operator !=(const Elem &that) const
@@ -102,3 +105,13 @@ struct Elem
         return *this != 0;
     }
 };
+
+template<class E> struct Elem_traits;
+
+template<class Tag> struct Elem_traits<Elem<Tag>>
+{
+    using Tag_t = Tag;
+    enum { W = Tag::W };
+};
+
+} // namespace fi
