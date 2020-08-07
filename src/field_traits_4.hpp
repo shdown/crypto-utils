@@ -60,7 +60,7 @@ template<> struct Field_traits<4>
  }
  static inline void mul_barrett(const uint64_t* a0, const uint64_t* a1, uint64_t* a2)
  {
-  return teki_mul_barret_4(const_cast<uint64_t*>(a0), const_cast<uint64_t*>(a1), a2);
+  return teki_mul_barrett_4(const_cast<uint64_t*>(a0), const_cast<uint64_t*>(a1), a2);
  }
  static inline void copyfw(uint64_t* a0, const uint64_t* a1)
  {

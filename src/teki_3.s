@@ -263,10 +263,10 @@ mulq (%rdi)
 addq %rax, 16(%r11)
 retq
 
-.global teki_mul_barret_3
-.type teki_mul_barret_3, @function
+.global teki_mul_barrett_3
+.type teki_mul_barrett_3, @function
 .align 16
-teki_mul_barret_3:
+teki_mul_barrett_3:
 movq %rdx, %r11
 xorq %r10, %r10
 movq (%rsi), %r9

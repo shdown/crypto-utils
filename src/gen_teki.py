@@ -630,7 +630,7 @@ def get_generated_funcs(n):
             short_name='mul_lo',
             callback=lambda: FUNC_mul_lo(n)),
         GeneratedFunc(
-            name=f'teki_mul_barret_{n}',
+            name=f'teki_mul_barrett_{n}',
             proto='@L*, @L*, L* -> void',
             short_name='mul_barrett',
             callback=lambda: FUNC_mul(n * 2, n + 1)),

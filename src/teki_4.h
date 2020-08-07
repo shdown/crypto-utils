@@ -14,7 +14,7 @@ extern void teki_mul_4(uint64_t*, uint64_t*, uint64_t*);
 extern uint64_t teki_mul_q_4(uint64_t*, uint64_t);
 extern uint64_t teki_div_leaky_q_4(uint64_t*, uint64_t);
 extern void teki_mul_lo_4(uint64_t*, uint64_t*, uint64_t*);
-extern void teki_mul_barret_4(uint64_t*, uint64_t*, uint64_t*);
+extern void teki_mul_barrett_4(uint64_t*, uint64_t*, uint64_t*);
 extern void teki_copyfw_4(uint64_t*, uint64_t*);
 extern void teki_copybw_4(uint64_t*, uint64_t*);
 extern void teki_setzlow_4(uint64_t*, uint64_t);
