@@ -266,15 +266,20 @@ def FUNC_mul_lo(n: int) -> None:
 
 def FUNC_mul_q(n: int) -> None:
     RS = RegStore()
-    reg_a = RS.take_by_name('rdi') # param 1
-    reg_x = RS.take_by_name('rsi') # param 2
+    reg_src = RS.take_by_name('rdi') # param 1
+    reg_m = RS.take_by_name('rsi') # param 2
+    reg_dst = RS.take_by_name('rdx') # param 3
 
-    a = PointerReg(reg_a)
+    # we need to move it around because 'mul_aux' gonna need rdx.
+    reg_dst = move_around(RS, reg_dst)
+
+    src = PointerReg(reg_src)
+    dst = PointerReg(reg_dst)
 
     reg_last_carry = mul_aux(
         RS,
         n, 0,
-        a, reg_x, a,
+        src, reg_m, dst,
         zero='$0')
 
     rax = RS.take_by_name('rax') # return value
@@ -284,9 +289,14 @@ def FUNC_mul_q(n: int) -> None:
 def FUNC_div_leaky_q(n: int) -> None:
     RS = RegStore()
     reg_a = RS.take_by_name('rdi') # param 1
-    reg_x = RS.take_by_name('rsi') # param 2
+    reg_m = RS.take_by_name('rsi') # param 2
+    reg_dst = RS.take_by_name('rdx') # param 3
+
+    # we need to move it around because we gonna need rdx.
+    reg_dst = move_around(RS, reg_dst)
 
     a = PointerReg(reg_a)
+    dst = PointerReg(reg_dst)
 
     rax = RS.take_by_name('rax')
     rdx = RS.take_by_name('rdx')
@@ -295,8 +305,8 @@ def FUNC_div_leaky_q(n: int) -> None:
 
     for i in reversed(range(n)):
         print(f'movq {a.displace(i)}, {rax}')
-        print(f'divq {reg_x}')
-        print(f'movq {rax}, {a.displace(i)}')
+        print(f'divq {reg_m}')
+        print(f'movq {rax}, {dst.displace(i)}')
 
     print(f'movq {rdx}, {rax}')
 
@@ -616,12 +626,12 @@ def get_generated_funcs(n):
             callback=lambda: FUNC_mul(n, n)),
         GeneratedFunc(
             name=f'teki_mul_q_{n}',
-            proto='L*, L -> L',
+            proto='@L*, L, L* -> L',
             short_name='mul_q',
             callback=lambda: FUNC_mul_q(n)),
         GeneratedFunc(
             name=f'teki_div_leaky_q_{n}',
-            proto='L*, L -> L',
+            proto='@L*, L, L* -> L',
             short_name='div_leaky_q',
             callback=lambda: FUNC_div_leaky_q(n)),
         GeneratedFunc(

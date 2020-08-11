@@ -261,27 +261,28 @@ retq
 .type teki_mul_q_4, @function
 .align 16
 teki_mul_q_4:
+movq %rdx, %r11
 movq %rsi, %rax
 mulq (%rdi)
-movq %rax, (%rdi)
-movq %rdx, %r11
+movq %rax, (%r11)
+movq %rdx, %r10
 movq %rsi, %rax
 mulq 8(%rdi)
-addq %r11, %rax
+addq %r10, %rax
 adcq $0, %rdx
-movq %rax, 8(%rdi)
-movq %rdx, %r11
+movq %rax, 8(%r11)
+movq %rdx, %r10
 movq %rsi, %rax
 mulq 16(%rdi)
-addq %r11, %rax
+addq %r10, %rax
 adcq $0, %rdx
-movq %rax, 16(%rdi)
-movq %rdx, %r11
+movq %rax, 16(%r11)
+movq %rdx, %r10
 movq %rsi, %rax
 mulq 24(%rdi)
-addq %r11, %rax
+addq %r10, %rax
 adcq $0, %rdx
-movq %rax, 24(%rdi)
+movq %rax, 24(%r11)
 movq %rdx, %rax
 retq
 
@@ -289,19 +290,20 @@ retq
 .type teki_div_leaky_q_4, @function
 .align 16
 teki_div_leaky_q_4:
+movq %rdx, %r11
 xorq %rdx, %rdx
 movq 24(%rdi), %rax
 divq %rsi
-movq %rax, 24(%rdi)
+movq %rax, 24(%r11)
 movq 16(%rdi), %rax
 divq %rsi
-movq %rax, 16(%rdi)
+movq %rax, 16(%r11)
 movq 8(%rdi), %rax
 divq %rsi
-movq %rax, 8(%rdi)
+movq %rax, 8(%r11)
 movq (%rdi), %rax
 divq %rsi
-movq %rax, (%rdi)
+movq %rax, (%r11)
 movq %rdx, %rax
 retq
 

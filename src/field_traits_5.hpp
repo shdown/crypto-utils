@@ -46,13 +46,13 @@ template<> struct Field_traits<5>
  {
   return teki_mul_5(const_cast<uint64_t*>(a0), const_cast<uint64_t*>(a1), a2);
  }
- static inline uint64_t mul_q(uint64_t* a0, uint64_t a1)
+ static inline uint64_t mul_q(const uint64_t* a0, uint64_t a1, uint64_t* a2)
  {
-  return teki_mul_q_5(a0, a1);
+  return teki_mul_q_5(const_cast<uint64_t*>(a0), a1, a2);
  }
- static inline uint64_t div_leaky_q(uint64_t* a0, uint64_t a1)
+ static inline uint64_t div_leaky_q(const uint64_t* a0, uint64_t a1, uint64_t* a2)
  {
-  return teki_div_leaky_q_5(a0, a1);
+  return teki_div_leaky_q_5(const_cast<uint64_t*>(a0), a1, a2);
  }
  static inline void mul_lo(const uint64_t* a0, const uint64_t* a1, uint64_t* a2)
  {
