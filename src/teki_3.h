@@ -18,4 +18,6 @@ extern void teki_mul_barrett_3(uint64_t*, uint64_t*, uint64_t*);
 extern void teki_copyfw_3(uint64_t*, uint64_t*);
 extern void teki_copybw_3(uint64_t*, uint64_t*);
 extern void teki_setzlow_3(uint64_t*, uint64_t);
+extern void teki_shr_3(uint64_t*, uint64_t, uint64_t*);
+extern void teki_shl_3(uint64_t*, uint64_t, uint64_t*);
 extern void teki_tabsel_3(uint64_t*, uint64_t*, uint64_t);

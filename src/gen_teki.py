@@ -195,6 +195,13 @@ def move_around(RS: RegStore, x: Reg) -> Reg:
     return x_copy
 
 
+def move_to_named(RS: RegStore, x: Reg, name: str) -> Reg:
+    x_copy = RS.take_by_name(name)
+    print(f'movq {x}, {x_copy}')
+    RS.untake(x)
+    return x_copy
+
+
 #------------------------------------------------------------------------------
 
 
@@ -309,6 +316,54 @@ def FUNC_div_leaky_q(n: int) -> None:
         print(f'movq {rax}, {dst.displace(i)}')
 
     print(f'movq {rdx}, {rax}')
+
+
+def FUNC_shr(n: int) -> None:
+    RS = RegStore()
+    reg_a = RS.take_by_name('rdi') # param 1
+    reg_m = RS.take_by_name('rsi') # param 2
+    reg_dst = RS.take_by_name('rdx') # param 3
+
+    rcx = move_to_named(RS, reg_m, 'rcx')
+
+    reg_tmp_cur = RS.take()
+    reg_tmp_old = RS.take()
+
+    a = PointerReg(reg_a)
+    dst = PointerReg(reg_dst)
+
+    for i in reversed(range(n)):
+        print(f'movq {a.displace(i)}, {reg_tmp_cur}')
+        if i + 1 == n:
+            print(f'shrq {reg_tmp_cur}')
+        else:
+            print(f'shrdq {reg_tmp_old}, {reg_tmp_cur}')
+        print(f'movq {reg_tmp_cur}, {dst.displace(i)}')
+        reg_tmp_cur, reg_tmp_old = reg_tmp_old, reg_tmp_cur
+
+
+def FUNC_shl(n: int) -> None:
+    RS = RegStore()
+    reg_a = RS.take_by_name('rdi') # param 1
+    reg_m = RS.take_by_name('rsi') # param 2
+    reg_dst = RS.take_by_name('rdx') # param 3
+
+    rcx = move_to_named(RS, reg_m, 'rcx')
+
+    reg_tmp_cur = RS.take()
+    reg_tmp_old = RS.take()
+
+    a = PointerReg(reg_a)
+    dst = PointerReg(reg_dst)
+
+    for i in range(n):
+        print(f'movq {a.displace(i)}, {reg_tmp_cur}')
+        if i == 0:
+            print(f'shlq {reg_tmp_cur}')
+        else:
+            print(f'shldq {reg_tmp_old}, {reg_tmp_cur}')
+        print(f'movq {reg_tmp_cur}, {dst.displace(i)}')
+        reg_tmp_cur, reg_tmp_old = reg_tmp_old, reg_tmp_cur
 
 
 class AORS_ADD:
@@ -659,6 +714,16 @@ def get_generated_funcs(n):
             proto='L*, L -> void',
             short_name='setzlow',
             callback=lambda: FUNC_setzlow(n)),
+        GeneratedFunc(
+            name=f'teki_shr_{n}',
+            proto='@L*, L, L* -> void',
+            short_name='shr',
+            callback=lambda: FUNC_shr(n)),
+        GeneratedFunc(
+            name=f'teki_shl_{n}',
+            proto='@L*, L, L* -> void',
+            short_name='shl',
+            callback=lambda: FUNC_shl(n)),
         GeneratedFunc(
             name=f'teki_tabsel_{n}',
             proto='L*, @L*, L -> void',

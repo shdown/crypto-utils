@@ -679,6 +679,44 @@ movq $0, 16(%rdi)
 movq $0, 24(%rdi)
 retq
 
+.global teki_shr_4
+.type teki_shr_4, @function
+.align 16
+teki_shr_4:
+movq %rsi, %rcx
+movq 24(%rdi), %r11
+shrq %r11
+movq %r11, 24(%rdx)
+movq 16(%rdi), %r10
+shrdq %r11, %r10
+movq %r10, 16(%rdx)
+movq 8(%rdi), %r11
+shrdq %r10, %r11
+movq %r11, 8(%rdx)
+movq (%rdi), %r10
+shrdq %r11, %r10
+movq %r10, (%rdx)
+retq
+
+.global teki_shl_4
+.type teki_shl_4, @function
+.align 16
+teki_shl_4:
+movq %rsi, %rcx
+movq (%rdi), %r11
+shlq %r11
+movq %r11, (%rdx)
+movq 8(%rdi), %r10
+shldq %r11, %r10
+movq %r10, 8(%rdx)
+movq 16(%rdi), %r11
+shldq %r10, %r11
+movq %r11, 16(%rdx)
+movq 24(%rdi), %r10
+shldq %r11, %r10
+movq %r10, 24(%rdx)
+retq
+
 .global teki_tabsel_4
 .type teki_tabsel_4, @function
 .align 16

@@ -74,6 +74,14 @@ template<> struct Field_traits<5>
  {
   return teki_setzlow_5(a0, a1);
  }
+ static inline void shr(const uint64_t* a0, uint64_t a1, uint64_t* a2)
+ {
+  return teki_shr_5(const_cast<uint64_t*>(a0), a1, a2);
+ }
+ static inline void shl(const uint64_t* a0, uint64_t a1, uint64_t* a2)
+ {
+  return teki_shl_5(const_cast<uint64_t*>(a0), a1, a2);
+ }
  static inline void tabsel(uint64_t* a0, const uint64_t* a1, uint64_t a2)
  {
   return teki_tabsel_5(a0, const_cast<uint64_t*>(a1), a2);
