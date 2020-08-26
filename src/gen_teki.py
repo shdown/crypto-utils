@@ -335,9 +335,9 @@ def FUNC_shr(n: int) -> None:
     for i in reversed(range(n)):
         print(f'movq {a.displace(i)}, {reg_tmp_cur}')
         if i + 1 == n:
-            print(f'shrq {reg_tmp_cur}')
+            print(f'shrq %cl, {reg_tmp_cur}')
         else:
-            print(f'shrdq {reg_tmp_old}, {reg_tmp_cur}')
+            print(f'shrdq %cl, {reg_tmp_old}, {reg_tmp_cur}')
         print(f'movq {reg_tmp_cur}, {dst.displace(i)}')
         reg_tmp_cur, reg_tmp_old = reg_tmp_old, reg_tmp_cur
 
@@ -359,9 +359,9 @@ def FUNC_shl(n: int) -> None:
     for i in range(n):
         print(f'movq {a.displace(i)}, {reg_tmp_cur}')
         if i == 0:
-            print(f'shlq {reg_tmp_cur}')
+            print(f'shlq %cl, {reg_tmp_cur}')
         else:
-            print(f'shldq {reg_tmp_old}, {reg_tmp_cur}')
+            print(f'shldq %cl, {reg_tmp_old}, {reg_tmp_cur}')
         print(f'movq {reg_tmp_cur}, {dst.displace(i)}')
         reg_tmp_cur, reg_tmp_old = reg_tmp_old, reg_tmp_cur
 

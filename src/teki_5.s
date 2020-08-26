@@ -949,19 +949,19 @@ retq
 teki_shr_5:
 movq %rsi, %rcx
 movq 32(%rdi), %r11
-shrq %r11
+shrq %cl, %r11
 movq %r11, 32(%rdx)
 movq 24(%rdi), %r10
-shrdq %r11, %r10
+shrdq %cl, %r11, %r10
 movq %r10, 24(%rdx)
 movq 16(%rdi), %r11
-shrdq %r10, %r11
+shrdq %cl, %r10, %r11
 movq %r11, 16(%rdx)
 movq 8(%rdi), %r10
-shrdq %r11, %r10
+shrdq %cl, %r11, %r10
 movq %r10, 8(%rdx)
 movq (%rdi), %r11
-shrdq %r10, %r11
+shrdq %cl, %r10, %r11
 movq %r11, (%rdx)
 retq
 
@@ -971,19 +971,19 @@ retq
 teki_shl_5:
 movq %rsi, %rcx
 movq (%rdi), %r11
-shlq %r11
+shlq %cl, %r11
 movq %r11, (%rdx)
 movq 8(%rdi), %r10
-shldq %r11, %r10
+shldq %cl, %r11, %r10
 movq %r10, 8(%rdx)
 movq 16(%rdi), %r11
-shldq %r10, %r11
+shldq %cl, %r10, %r11
 movq %r11, 16(%rdx)
 movq 24(%rdi), %r10
-shldq %r11, %r10
+shldq %cl, %r11, %r10
 movq %r10, 24(%rdx)
 movq 32(%rdi), %r11
-shldq %r10, %r11
+shldq %cl, %r10, %r11
 movq %r11, 32(%rdx)
 retq
 
